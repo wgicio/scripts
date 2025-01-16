@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# Ask user for the hostname
+read -p "Enter the hostname for this machine: " hostname
+
+# Step 1: Download Promtail
+echo "Downloading Promtail..."
+curl -LO https://github.com/grafana/loki/releases/download/v3.3.2/promtail-linux-amd64.zip
+
+# Step 2: Unzip and make Promtail executable
+echo "Unzipping Promtail..."
+unzip promtail-linux-amd64.zip
+chmod +x promtail-linux-amd64
+
+# Step 3: Move Promtail to /usr/local/bin
+echo "Moving Promtail to /usr/local/bin..."
+sudo mv promtail-linux-amd64 /usr/local/bin/promtail
+
+# Step 4: Create the systemd service for Promtail
+echo "Creating Promtail systemd service..."
+sudo tee /etc/systemd/system/promtail.service > /dev/null <<EOF
+[Unit]
+Description=Promtail service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/promtail.yml
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Step 5: Create Promtail configuration file
+echo "Creating Promtail configuration file..."
+sudo tee /etc/promtail/promtail.yml > /dev/null <<EOF
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 9095
+
+clients:
+  - url: "http://10.10.66.13:3100/loki/api/v1/push"  # URL of Loki in your network
+
+positions:
+  filename: /tmp/positions.yaml
+
+scrape_configs:
+  - job_name: "system"
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log   # Adjust this path to capture the desired logs
+          host: ${hostname}
+
+  - job_name: "cpanel_logs"
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: cpanel
+          __path__: /usr/local/cpanel/logs/*log   # Path for cPanel logs (adjust based on your environment)
+          host: ${hostname}
+
+  - job_name: "csf_logs"
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: csf
+          __path__: /var/log/lfd.log   # CSF log location
+          host: ${hostname}
+
+  - job_name: "journal"
+    journal:
+      max_age: 12h
+      labels:
+        job: systemd-journal
+        host: ${hostname}  
+    relabel_configs:
+      - source_labels: ["__journal__systemd_unit"]
+        target_label: "unit"
+      - source_labels: ["__journal__hostname"]
+        target_label: "hostname"
+EOF
+
+# Step 6: Enable and start the Promtail service
+echo "Enabling and starting Promtail service..."
+sudo systemctl enable promtail
+sudo systemctl start promtail
+
+# Step 7: Output the status of Promtail service via systemctl
+echo "Promtail service status (systemctl):"
+sudo systemctl status promtail --no-pager
+
+# Step 8: Output the journalctl logs for Promtail service
+echo "Promtail journal logs (journalctl):"
+sudo journalctl -u promtail --since "1 hour ago" --no-pager
