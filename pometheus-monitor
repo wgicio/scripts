@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Ask for Prometheus version
+read -p "Enter the Prometheus version you want to install (e.g., 3.1.0): " PROMETHEUS_VERSION
+
+# Validate input version (simple check to ensure it's not empty)
+if [[ -z "$PROMETHEUS_VERSION" ]]; then
+  echo "Error: Prometheus version is required."
+  exit 1
+fi
+
+# Update and install required dependencies
+echo "Updating system and installing required packages..."
+sudo apt update -y && sudo apt upgrade -y
+sudo apt install -y wget curl unzip
+
+# Download and install Prometheus
+echo "Downloading and installing Prometheus version $PROMETHEUS_VERSION..."
+wget https://github.com/prometheus/prometheus/releases/download/v$PROMETHEUS_VERSION/prometheus-$PROMETHEUS_VERSION.linux-amd64.tar.gz
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to download Prometheus version $PROMETHEUS_VERSION."
+  exit 1
+fi
+tar -xvzf prometheus-$PROMETHEUS_VERSION.linux-amd64.tar.gz
+cd prometheus-$PROMETHEUS_VERSION.linux-amd64
+
+# Move binaries to /usr/local/bin
+sudo mv prometheus promtool /usr/local/bin/
+
+# Set up necessary directories
+echo "Setting up Prometheus directories..."
+sudo mkdir -p /etc/prometheus
+sudo mkdir -p /var/lib/prometheus
+
+# Copy configuration and default files
+echo "Copying Prometheus configuration files..."
+sudo cp prometheus.yml /etc/prometheus/
+sudo cp consoles/ /etc/prometheus/
+sudo cp console_libraries/ /etc/prometheus/
+
+# Create a systemd service file for Prometheus
+echo "Creating systemd service for Prometheus..."
+sudo bash -c 'cat > /etc/systemd/system/prometheus.service <<EOL
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/data --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOL'
+
+# Reload systemd, enable, and start Prometheus
+echo "Enabling and starting Prometheus service..."
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl start prometheus
+
+# Verify Prometheus service status
+echo "Verifying Prometheus service status..."
+sudo systemctl status prometheus
+
+# Clean up downloaded files
+echo "Cleaning up downloaded files..."
+cd ..
+rm -rf prometheus-$PROMETHEUS_VERSION.linux-amd64.tar.gz prometheus-$PROMETHEUS_VERSION.linux-amd64/
+
+# Output Prometheus URL for monitoring
+echo "Prometheus setup complete. You can access Prometheus at http://<your-server-ip>:9090"
