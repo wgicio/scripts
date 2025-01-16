@@ -32,7 +32,11 @@ User=root
 WantedBy=multi-user.target
 EOF
 
-# Step 5: Create Promtail configuration file
+# Step 5: Create the /etc/promtail directory to avoid errors
+echo "Creating /etc/promtail directory..."
+sudo mkdir -p /etc/promtail
+
+# Step 6: Create Promtail configuration file
 echo "Creating Promtail configuration file..."
 sudo tee /etc/promtail/promtail.yml > /dev/null <<EOF
 server:
@@ -86,15 +90,15 @@ scrape_configs:
         target_label: "hostname"
 EOF
 
-# Step 6: Enable and start the Promtail service
+# Step 7: Enable and start the Promtail service
 echo "Enabling and starting Promtail service..."
 sudo systemctl enable promtail
 sudo systemctl start promtail
 
-# Step 7: Output the status of Promtail service via systemctl
+# Step 8: Output the status of Promtail service via systemctl
 echo "Promtail service status (systemctl):"
 sudo systemctl status promtail --no-pager
 
-# Step 8: Output the journalctl logs for Promtail service
+# Step 9: Output the journalctl logs for Promtail service
 echo "Promtail journal logs (journalctl):"
-sudo journalctl -u promtail --since "1 hour ago" --no-pager
+sudo journalctl -
