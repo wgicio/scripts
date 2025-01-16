@@ -90,15 +90,20 @@ scrape_configs:
         target_label: "hostname"
 EOF
 
-# Step 7: Enable and start the Promtail service
+# Step 7: Set permissions for the Promtail configuration file
+echo "Setting permissions for /etc/promtail/promtail.yml..."
+sudo chmod 644 /etc/promtail/promtail.yml
+sudo chown root:root /etc/promtail/promtail.yml
+
+# Step 8: Enable and start the Promtail service
 echo "Enabling and starting Promtail service..."
 sudo systemctl enable promtail
 sudo systemctl start promtail
 
-# Step 8: Output the status of Promtail service via systemctl
+# Step 9: Output the status of Promtail service via systemctl
 echo "Promtail service status (systemctl):"
 sudo systemctl status promtail --no-pager
 
-# Step 9: Output the journalctl logs for Promtail service
+# Step 10: Output the journalctl logs for Promtail service
 echo "Promtail journal logs (journalctl):"
 sudo journalctl -u promtail --since "1 hour ago" --no-pager
