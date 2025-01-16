@@ -101,4 +101,4 @@ sudo systemctl status promtail --no-pager
 
 # Step 9: Output the journalctl logs for Promtail service
 echo "Promtail journal logs (journalctl):"
-sudo journalctl -
+sudo journalctl -u promtail --since "1 hour ago" --no-pager
